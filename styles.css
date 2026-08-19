@@ -311,6 +311,15 @@ select {
   margin-bottom: 0.9rem;
 }
 
+.decoder-warning {
+  display: block;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid rgba(224, 146, 139, 0.35);
+  border-radius: 6px;
+  background: var(--bad-bg);
+  color: var(--bad);
+}
+
 .progress {
   height: 3px;
   background: var(--line-soft);
