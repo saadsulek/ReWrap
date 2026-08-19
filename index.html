@@ -188,7 +188,53 @@
   <p>Runs entirely in your browser · powered by <span translate="no">libheif</span>, <span translate="no">exifr</span>, <span translate="no">JSZip</span></p>
 </footer>
 
-<script src="https://cdn.jsdelivr.net/npm/libheif-js@1.19.8/libheif-wasm/libheif-bundle.js" defer></script>
+<script>
+  /* Load the HEIC/HEIF decoder from one of several CDNs so a single blocked
+     or unreachable host doesn't break HEIC conversion. Fires libheif-ready or
+     libheif-failed on window once we know the outcome. */
+  (function () {
+    var sources = [
+      'https://cdn.jsdelivr.net/npm/libheif-js@1.19.8/libheif-wasm/libheif-bundle.js',
+      'https://unpkg.com/libheif-js@1.19.8/libheif-wasm/libheif-bundle.js',
+      'https://cdn.jsdelivr.net/npm/libheif-js@1.19.8/libheif/libheif.js',
+      'https://unpkg.com/libheif-js@1.19.8/libheif/libheif.js'
+    ];
+    function ready() {
+      window.dispatchEvent(new CustomEvent('libheif-ready'));
+    }
+    function fail() {
+      window.dispatchEvent(new CustomEvent('libheif-failed'));
+    }
+    function resolveModule() {
+      var lib = window.libheif || null;
+      if (lib && typeof lib === 'function') {
+        try { lib = lib(); } catch (e) { return null; }
+      }
+      if (!lib || !lib.HeifDecoder) return null;
+      /* libheif-js@1.19.8 wrapper calls a few low-level functions as bare
+         globals instead of module members — expose them so decode works. */
+      for (var k in lib) {
+        if (/^(heif_|de265_)/.test(k) && typeof lib[k] === 'function') {
+          try { window[k] = lib[k]; } catch (e) {}
+        }
+      }
+      return lib;
+    }
+    function load(i) {
+      if (i >= sources.length) { fail(); return; }
+      var s = document.createElement('script');
+      s.src = sources[i];
+      s.onload = function () {
+        var mod = resolveModule();
+        if (mod) { window.libheif = mod; ready(); }
+        else load(i + 1);
+      };
+      s.onerror = function () { load(i + 1); };
+      document.head.appendChild(s);
+    }
+    load(0);
+  })();
+</script>
 <script src="https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/full.umd.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js" defer></script>
 <script src="app.js" defer></script>
