@@ -764,8 +764,8 @@
     return C.jpegInjectSegments(stripped, segments);
   };
 
-  /* Convert an HEIC/HEIF file. Pixels: one decode + one encode at the chosen quality. */
-  C.convertHeic = async function (arrayBuffer, quality, libheif) {
+  /* Shared HEIC/HEIF conversion. Pixels: one decode + one encode at the chosen quality. */
+  const convertHeif = async function (arrayBuffer, quality, libheif, mode) {
     const meta = C.parseHeifMetadata(new Uint8Array(arrayBuffer));
     const decoded = await decodeHeicToImageData(arrayBuffer, libheif);
     const canvas = canvasFromImageData(decoded.width, decoded.height, decoded.data);
@@ -776,9 +776,19 @@
       width: decoded.width,
       height: decoded.height,
       meta,
-      mode: 'heic',
+      mode,
       quality: Math.round(quality * 100)
     };
+  };
+
+  /* Convert a HEIC file. Pixels: one decode + one encode at the chosen quality. */
+  C.convertHeic = function (arrayBuffer, quality, libheif) {
+    return convertHeif(arrayBuffer, quality, libheif, 'heic');
+  };
+
+  /* Convert a HEIF file. Pixels: one decode + one encode at the chosen quality. */
+  C.convertHeif = function (arrayBuffer, quality, libheif) {
+    return convertHeif(arrayBuffer, quality, libheif, 'heif');
   };
 
   /* Convert a ProRAW (DNG) file. Pixels: extracted verbatim from the embedded JPEG. */
@@ -871,8 +881,40 @@
 
   const SUPPORTED = { heic: 'HEIC', heif: 'HEIF', dng: 'ProRAW (DNG)' };
 
+  const libheifStatus = { state: 'loading' };
+
+  window.addEventListener('libheif-ready', function () {
+    libheifStatus.state = 'ready';
+    renderDecoderNotice();
+  });
+  window.addEventListener('libheif-failed', function () {
+    libheifStatus.state = 'failed';
+    renderDecoderNotice();
+  });
+
   const getLibheif = function () {
-    return window.libheif || null;
+    let lib = window.libheif || null;
+    if (lib && typeof lib === 'function') {
+      try { lib = lib(); } catch (e) { return null; }
+    }
+    if (!lib || !lib.HeifDecoder) return null;
+    window.libheif = lib;
+    for (const k in lib) {
+      if (/^(heif_|de265_)/.test(k) && typeof lib[k] === 'function') {
+        try { window[k] = lib[k]; } catch (e) {}
+      }
+    }
+    return lib;
+  };
+
+  const renderDecoderNotice = function () {
+    if (libheifStatus.state !== 'failed') return;
+    const summary = $('#queueSummary');
+    if (!summary) return;
+    const msg = document.createElement('span');
+    msg.className = 'decoder-warning';
+    msg.textContent = 'The HEIC/HEIF decoder could not be loaded (network or blocker issue). .dng files still work; .heic/.heif will show an error. Try reloading with a connection, or check for an ad-blocker.';
+    summary.replaceChildren(msg);
   };
 
   const extOf = function (name) {
@@ -1057,12 +1099,18 @@
     try {
       const buf = await item.file.arrayBuffer();
       let result;
+      const libheif = getLibheif();
       if (item.ext === 'dng') {
         result = await C.convertDng(buf, qualityValue());
+      } else if (!libheif || !libheif.HeifDecoder) {
+        if (libheifStatus.state === 'failed') {
+          throw new Error('The HEIC/HEIF decoder could not be loaded — check your connection or ad-blocker, then reload.');
+        }
+        throw new Error('The HEIC decoder is still loading — please wait a moment and try again.');
       } else {
-        const libheif = getLibheif();
-        if (!libheif || !libheif.HeifDecoder) throw new Error('The HEIC decoder failed to load. Check your connection and reload.');
-        result = await C.convertHeic(buf, qualityValue(), libheif);
+        result = item.ext === 'heif'
+          ? await C.convertHeif(buf, qualityValue(), libheif)
+          : await C.convertHeic(buf, qualityValue(), libheif);
       }
       item.result = result;
       item.outName = uniqueName(baseOf(item.name));
