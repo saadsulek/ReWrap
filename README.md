@@ -7,7 +7,6 @@
 [![Live App](https://img.shields.io/badge/🚀_Live_App-saadsulek.github.io%2FReWrap-6C5CE7?style=for-the-badge)](https://saadsulek.github.io/ReWrap/)
 [![100% Client-Side](https://img.shields.io/badge/🔒_100%25-Client--Side-00B894?style=for-the-badge)](#-privacy)
 [![No Uploads](https://img.shields.io/badge/☁️_No-Uploads-0984E3?style=for-the-badge)](#-privacy)
-[![License](https://img.shields.io/badge/📄_License-Unspecified-FDCB6E?style=for-the-badge)](#-license)
 
 </div>
 
@@ -86,9 +85,6 @@ Then open `http://localhost:8000` in your browser.
 
 Everything happens client-side. Your photos are never uploaded anywhere — you can verify this by opening dev tools and watching the network tab 🕵️, or by disconnecting from the internet after the page loads 📡❌.
 
-## 📄 License
-
-Add a license of your choice (e.g. MIT) — none is currently specified in this repo.
 
 ## 🤝 Contributing
 
